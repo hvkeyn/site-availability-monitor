@@ -76,7 +76,7 @@ foreach ($sites as $s) {
                 </button>
                 <div class="stat stat-meta" title="С учётом категории, страны и поиска">
                     <span class="stat-num-wrap">
-                        <span class="stat-num" id="cntTotal"><?= count($sites) ?></span><span class="stat-num-suffix">/<?= count($sites) ?></span>
+                        <span class="stat-num" id="cntTotal"><?= count($sites) ?></span><span class="stat-num-suffix" id="cntTotalOf">/<?= count($sites) ?></span>
                     </span>
                     <span class="stat-label">Показано</span>
                 </div>
@@ -207,6 +207,6 @@ foreach ($sites as $s) {
     <script>
         window.__SITES__ = <?= json_encode($sites, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     </script>
-    <script src="assets/js/app.js?v=6"></script>
+    <script src="assets/js/app.js?v=8"></script>
 </body>
 </html>

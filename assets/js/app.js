@@ -22,7 +22,10 @@
     var SITES = window.__SITES__ || [];
     var TIMEOUT_MS = 8000;   // сетевой таймаут
     var SLOW_MS = 2500;      // порог «медленно»
-    var CONCURRENCY = 6;     // параллельных проверок
+    var CONCURRENCY = (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) ? 3 : 6;
+
+    // Хосты, где при прокси часто показывают SmartCaptcha вместо главной
+    var CAPTCHA_HOSTS = ['ya.ru', 'yandex.ru', 'dzen.ru', 'zen.yandex.ru', 'mail.ru', 'ok.ru'];
 
     var autoTimer = null;
     var clockTimer = null;
@@ -46,6 +49,7 @@
         cntDown: document.getElementById('cntDown'),
         cntWait: document.getElementById('cntWait'),
         cntTotal: document.getElementById('cntTotal'),
+        cntTotalOf: document.getElementById('cntTotalOf'),
         gridEmpty: document.getElementById('gridEmpty'),
         gauge: document.getElementById('gauge'),
         gaugePct: document.getElementById('gaugePct'),
@@ -78,24 +82,37 @@
         return DEFAULT_PROBE_PATHS;
     }
 
-    /** fetch(no-cors): промис резолвится, если соединение с хостом установилось */
-    function probeFetch(domain, path) {
+    /** fetch(no-cors): резолвится при любом ответе; redirect:manual ловит капчу (opaqueredirect) */
+    function probeFetch(domain, path, opts) {
+        opts = opts || {};
         return new Promise(function (resolve) {
-            if (!('fetch' in window) || !('AbortController' in window)) { resolve(null); return; }
+            if (!('fetch' in window) || !('AbortController' in window)) {
+                resolve({ type: 'fetch', path: path, t: null, signal: null, redirect: opts.redirect || 'follow' });
+                return;
+            }
             var ctrl = new AbortController();
             var t0 = performance.now();
             var timer = setTimeout(function () { ctrl.abort(); }, TIMEOUT_MS);
             fetch(bust(domain, path), {
                 mode: 'no-cors',
                 cache: 'no-store',
-                redirect: 'follow',
+                redirect: opts.redirect || 'follow',
+                credentials: 'omit',
+                referrerPolicy: 'no-referrer',
                 signal: ctrl.signal,
-            }).then(function () {
+            }).then(function (resp) {
                 clearTimeout(timer);
-                resolve(performance.now() - t0);
+                var signal = resp.type === 'opaqueredirect' ? 'redirect' : 'ok';
+                resolve({
+                    type: 'fetch',
+                    path: path,
+                    t: performance.now() - t0,
+                    signal: signal,
+                    redirect: opts.redirect || 'follow',
+                });
             }).catch(function () {
                 clearTimeout(timer);
-                resolve(null);
+                resolve({ type: 'fetch', path: path, t: null, signal: null, redirect: opts.redirect || 'follow' });
             });
         });
     }
@@ -125,6 +142,8 @@
                 resolve(null);
             };
             img.src = bust(domain, path);
+        }).then(function (t) {
+            return { type: 'image', path: path, t: t, signal: t != null ? 'ok' : null };
         });
     }
 
@@ -134,11 +153,15 @@
      */
     function probeIframe(domain) {
         return new Promise(function (resolve) {
-            if (!document.body) { resolve(null); return; }
+            if (!document.body) {
+                resolve({ type: 'iframe', path: '/', t: null, signal: null });
+                return;
+            }
             var iframe = document.createElement('iframe');
             iframe.setAttribute('aria-hidden', 'true');
             iframe.title = 'probe';
-            iframe.style.cssText = 'position:absolute;left:-9999px;width:0;height:0;border:0;opacity:0;pointer-events:none';
+            iframe.referrerPolicy = 'no-referrer';
+            iframe.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;border:0;opacity:0;pointer-events:none';
             var t0 = performance.now();
             var settled = false;
             function finish(ms) {
@@ -147,7 +170,7 @@
                 clearTimeout(timer);
                 iframe.onload = iframe.onerror = null;
                 try { document.body.removeChild(iframe); } catch (e) { /* ignore */ }
-                resolve(ms);
+                resolve({ type: 'iframe', path: '/', t: ms, signal: ms != null ? 'ok' : null });
             }
             var timer = setTimeout(function () { finish(null); }, TIMEOUT_MS);
             iframe.onload = function () { finish(performance.now() - t0); };
@@ -157,9 +180,45 @@
         });
     }
 
-    function classifyReachability(results) {
+    function isCaptchaHost(domain) {
+        return CAPTCHA_HOSTS.indexOf(domain) !== -1 ||
+            CAPTCHA_HOSTS.some(function (h) { return domain === h || domain.endsWith('.' + h); });
+    }
+
+    function classifyReachability(results, site) {
         var ok = results.filter(function (r) { return r.t !== null && !isNaN(r.t); });
-        if (!ok.length) return { state: 'down', latency: null, hint: null };
+        var hasRedirect = results.some(function (r) { return r.signal === 'redirect'; });
+        var captchaHint = 'возможна капча — сайт отвечает';
+
+        if (!ok.length) {
+            if (hasRedirect) {
+                var rd = results.find(function (r) { return r.signal === 'redirect' && r.t != null; });
+                return {
+                    state: 'slow',
+                    latency: rd ? Math.round(rd.t) : null,
+                    hint: captchaHint,
+                };
+            }
+            var robotsOk = results.find(function (r) {
+                return r.path === '/robots.txt' && r.t != null;
+            });
+            var rootFailed = results.some(function (r) {
+                return r.path === '/' && r.type === 'fetch';
+            }) && results.every(function (r) {
+                return r.path !== '/' || r.type !== 'fetch' || r.t == null;
+            });
+            if (robotsOk && rootFailed) {
+                return {
+                    state: 'slow',
+                    latency: Math.round(robotsOk.t),
+                    hint: captchaHint,
+                };
+            }
+            if (site && isCaptchaHost(site.domain)) {
+                return { state: 'slow', latency: null, hint: captchaHint };
+            }
+            return { state: 'down', latency: null, hint: null };
+        }
 
         var times = ok.map(function (r) { return r.t; });
         var best = Math.min.apply(null, times);
@@ -167,15 +226,23 @@
         var hasIframe = ok.some(function (r) { return r.type === 'iframe'; });
         var hint = null;
 
-        // Страница открывается в iframe, но лёгкие запросы не прошли — капча/защита (Дзен, Claude…)
-        if (hasIframe && !hasFetch) {
+        if (hasRedirect) {
+            hint = captchaHint;
+        } else if (hasIframe && !hasFetch) {
             hint = 'возможна проверка безопасности';
         } else if (hasIframe && best >= SLOW_MS) {
             hint = 'возможна проверка безопасности';
+        } else {
+            var rootFetchFail = results.some(function (r) {
+                return r.path === '/' && r.type === 'fetch' && r.t == null;
+            });
+            var robotsHit = ok.some(function (r) { return r.path === '/robots.txt'; });
+            if (rootFetchFail && robotsHit && site && isCaptchaHost(site.domain)) {
+                hint = captchaHint;
+            }
         }
 
         var state = best < SLOW_MS ? 'up' : 'slow';
-        // Сайт открывается (iframe), но защита/капча — не «недоступно», а жёлтый статус
         if (hint) state = 'slow';
 
         return {
@@ -190,22 +257,19 @@
         var probes = [];
 
         paths.forEach(function (path) {
-            probes.push(
-                probeFetch(site.domain, path).then(function (t) { return { type: 'fetch', t: t }; })
-            );
+            probes.push(probeFetch(site.domain, path, { redirect: 'follow' }));
+            if (path === '/' || path === '/robots.txt') {
+                probes.push(probeFetch(site.domain, path, { redirect: 'manual' }));
+            }
             if (path === '/favicon.ico' || /\.(ico|png|svg|webp)$/i.test(path)) {
-                probes.push(
-                    probeImage(site.domain, path).then(function (t) { return { type: 'image', t: t }; })
-                );
+                probes.push(probeImage(site.domain, path));
             }
         });
 
-        probes.push(
-            probeIframe(site.domain).then(function (t) { return { type: 'iframe', t: t }; })
-        );
+        probes.push(probeIframe(site.domain));
 
         return Promise.all(probes).then(function (results) {
-            return classifyReachability(results);
+            return classifyReachability(results, site);
         });
     }
 
@@ -236,15 +300,21 @@
         latEl.hidden = false;
         if (latency != null) {
             latEl.textContent = latency + ' мс' + (hint ? ' · ' + hint : '');
+        } else if (hint) {
+            latEl.textContent = hint;
         } else {
-            latEl.textContent = hint || 'нет ответа';
+            latEl.textContent = 'нет ответа';
         }
         checkedAt.hidden = false;
         checkedAt.textContent = 'проверено ' + new Date().toLocaleTimeString('ru-RU');
 
         var width;
         if (state === 'up')        { width = Math.max(35, 100 - (latency / SLOW_MS) * 65); }
-        else if (state === 'slow') { width = Math.max(20, 70 - ((latency - SLOW_MS) / TIMEOUT_MS) * 50); }
+        else if (state === 'slow') {
+            width = latency != null
+                ? Math.max(20, 70 - ((latency - SLOW_MS) / TIMEOUT_MS) * 50)
+                : 45;
+        }
         else                       { width = 6; }
         fill.style.width = width + '%';
     }
@@ -256,24 +326,33 @@
     // ---------- Сводка + кольцо ----------
 
     function updateStats() {
+        var ctx = getFilterContext();
         var counts = { up: 0, slow: 0, down: 0, wait: 0 };
-        var total = 0;
-        // Считаем только видимые карточки (категория, страна, поиск, статус)
-        els.grid.querySelectorAll('.card:not(.hidden)').forEach(function (card) {
-            total++;
+        var baseTotal = 0;
+        var visible = 0;
+
+        // Сводка по категории/стране/поиску — без фильтра по статусу (цифры в плитках не сбрасываются)
+        els.grid.querySelectorAll('.card').forEach(function (card) {
+            if (!cardMatchesBase(card, ctx)) return;
+
+            baseTotal++;
             var s = card.querySelector('.status-led').dataset.state;
             if (s === 'up') counts.up++;
             else if (s === 'slow') counts.slow++;
             else if (s === 'down') counts.down++;
             else counts.wait++;
+
+            if (cardMatchesStatus(s)) visible++;
         });
+
         animateNum(els.cntUp, counts.up);
         animateNum(els.cntSlow, counts.slow);
         animateNum(els.cntDown, counts.down);
         animateNum(els.cntWait, counts.wait);
-        if (els.cntTotal) els.cntTotal.textContent = total;
+        if (els.cntTotal) els.cntTotal.textContent = visible;
+        if (els.cntTotalOf) els.cntTotalOf.textContent = '/' + baseTotal;
 
-        var pct = total ? Math.round((counts.up / total) * 100) : 0;
+        var pct = baseTotal ? Math.round((counts.up / baseTotal) * 100) : 0;
         els.gauge.style.setProperty('--pct', pct);
         els.gaugePct.textContent = pct + '%';
         var ring = pct >= 70 ? 'var(--up)' : (pct >= 40 ? 'var(--slow)' : 'var(--down)');
@@ -382,22 +461,35 @@
 
     // ---------- Фильтры, поиск, сортировка ----------
 
-    function applyFilter() {
+    function getFilterContext() {
         var activeChip = els.filters.querySelector('.chip.active');
-        var cat = activeChip ? activeChip.dataset.cat : 'all';
-        var q = (els.search.value || '').trim().toLowerCase();
+        return {
+            cat: activeChip ? activeChip.dataset.cat : 'all',
+            q: (els.search.value || '').trim().toLowerCase(),
+            origin: originFilter,
+        };
+    }
 
+    function cardMatchesBase(card, ctx) {
+        var okCat = ctx.cat === 'all' || card.dataset.cat === ctx.cat;
+        var okQ = !ctx.q || card.dataset.name.indexOf(ctx.q) !== -1;
+        var okOrigin = ctx.origin === 'all' || card.dataset.origin === ctx.origin;
+        return okCat && okQ && okOrigin;
+    }
+
+    function cardMatchesStatus(cardState) {
+        if (!statusFilter) return true;
+        if (statusFilter === 'idle') return cardState === 'idle' || cardState === 'checking';
+        return cardState === statusFilter;
+    }
+
+    function applyFilter() {
+        var ctx = getFilterContext();
         var visible = 0;
+
         els.grid.querySelectorAll('.card').forEach(function (card) {
-            var okCat = cat === 'all' || card.dataset.cat === cat;
-            var okQ = !q || card.dataset.name.indexOf(q) !== -1;
-            var okOrigin = originFilter === 'all' || card.dataset.origin === originFilter;
             var cardState = card.querySelector('.status-led').dataset.state;
-            var okStatus = !statusFilter ||
-                (statusFilter === 'idle'
-                    ? (cardState === 'idle' || cardState === 'checking')
-                    : cardState === statusFilter);
-            var show = okCat && okQ && okOrigin && okStatus;
+            var show = cardMatchesBase(card, ctx) && cardMatchesStatus(cardState);
             card.classList.toggle('hidden', !show);
             if (show) visible++;
         });
