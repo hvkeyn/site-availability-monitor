@@ -537,11 +537,17 @@
     // ---------- Внешний IP ----------
 
     function loadIP() {
+        // Модуль приватности (privacy.js) тоже определяет IP и обновляет этот же блок.
+        // Не затираем уже показанный адрес при сбое запроса.
         if (!('fetch' in window)) { els.ipText.textContent = 'IP недоступен'; return; }
         fetch('https://api.ipify.org?format=json', { cache: 'no-store' })
             .then(function (r) { return r.json(); })
-            .then(function (d) { els.ipText.textContent = 'Ваш IP: ' + d.ip; })
-            .catch(function () { els.ipText.textContent = 'IP скрыт'; });
+            .then(function (d) { if (d && d.ip) els.ipText.textContent = 'Ваш IP: ' + d.ip; })
+            .catch(function () {
+                if (/определяем|—/.test(els.ipText.textContent)) {
+                    els.ipText.textContent = 'IP скрыт';
+                }
+            });
     }
 
     // ---------- Автообновление ----------
