@@ -111,6 +111,7 @@ return [
 
         // ── Разработка ────────────────────────────────────────
         ['id' => 'github',     'name' => 'GitHub',          'domain' => 'github.com',          'url' => 'https://github.com',          'category' => 'dev',       'status' => 'ok',      'note' => 'Работает, изредка частичные ограничения.', 'origin' => 'foreign'],
+        ['id' => 'figma',      'name' => 'Figma',           'domain' => 'www.figma.com',       'url' => 'https://www.figma.com',       'category' => 'dev',       'status' => 'blocked', 'note' => 'По сообщениям — ограничен/недоступен в РФ (неофициально); часто только через VPN.', 'origin' => 'foreign'],
         ['id' => 'gitlab',     'name' => 'GitLab',          'domain' => 'gitlab.com',          'url' => 'https://gitlab.com',          'category' => 'dev',       'status' => 'ok',      'note' => 'Работает.', 'origin' => 'foreign'],
         ['id' => 'habr',       'name' => 'Habr',            'domain' => 'habr.com',            'url' => 'https://habr.com',            'category' => 'dev',       'status' => 'ok',      'note' => 'Российский IT-портал, работает.', 'origin' => 'ru'],
         ['id' => 'npm',        'name' => 'npm registry',    'domain' => 'www.npmjs.com',       'url' => 'https://www.npmjs.com',       'category' => 'dev',       'status' => 'ok',      'note' => 'Работает.', 'origin' => 'foreign'],

@@ -20,7 +20,7 @@ foreach ($sites as $s) {
     <title>Монитор доступности сайтов — проверка из вашего браузера</title>
     <meta name="description" content="Реальная проверка доступности популярных сайтов из РФ напрямую из вашего браузера и с вашего IP.">
     <link rel="preconnect" href="https://icons.duckduckgo.com">
-    <link rel="stylesheet" href="assets/css/style.css?v=6">
+    <link rel="stylesheet" href="assets/css/style.css?v=7">
 </head>
 <body>
     <div class="bg-grid" aria-hidden="true"></div>
@@ -76,11 +76,81 @@ foreach ($sites as $s) {
                 </button>
                 <div class="stat stat-meta" title="С учётом категории, страны и поиска">
                     <span class="stat-num-wrap">
-                        <span class="stat-num" id="cntTotal"><?= count($sites) ?></span><span class="stat-num-suffix">/<?= count($sites) ?></span>
+                        <span class="stat-num" id="cntTotal"><?= count($sites) ?></span><span class="stat-num-suffix" id="cntTotalOf">/<?= count($sites) ?></span>
                     </span>
                     <span class="stat-label">Показано</span>
                 </div>
             </div>
+        </section>
+
+        <!-- Модуль приватности: что видно сайтам с вашего IP -->
+        <section class="privacy" id="privacy" aria-label="Мои данные и приватность">
+            <div class="pv-head">
+                <div class="pv-head-text">
+                    <h2>Мои данные</h2>
+                    <p class="pv-sub">Что видно сайтам с вашего адреса прямо сейчас</p>
+                </div>
+                <div class="pv-verdict" id="pvVerdict" data-state="idle" title="Сводный вывод по приватности">
+                    <span class="pv-verdict-dot"></span>
+                    <span id="pvVerdictText">Анализируем…</span>
+                </div>
+                <button class="btn btn-ghost pv-refresh" id="pvRefresh" title="Обновить данные">↻</button>
+            </div>
+
+            <div class="pv-grid">
+                <div class="pv-row" data-key="ip">
+                    <span class="pv-ico" aria-hidden="true">🌐</span>
+                    <span class="pv-label">IP-адрес</span>
+                    <span class="pv-value" id="pvIp">определяем…</span>
+                    <button class="pv-copy" id="pvCopy" title="Скопировать IP" hidden>⧉</button>
+                </div>
+                <div class="pv-row" data-key="geo">
+                    <span class="pv-ico" aria-hidden="true">📍</span>
+                    <span class="pv-label">Местоположение</span>
+                    <span class="pv-value" id="pvGeo">определяем…</span>
+                </div>
+                <div class="pv-row" data-key="isp">
+                    <span class="pv-ico" aria-hidden="true">🏢</span>
+                    <span class="pv-label">Провайдер</span>
+                    <span class="pv-value" id="pvIsp">определяем…</span>
+                </div>
+                <div class="pv-row" data-key="browser">
+                    <span class="pv-ico" aria-hidden="true">🧭</span>
+                    <span class="pv-label">Браузер</span>
+                    <span class="pv-value" id="pvBrowser">—</span>
+                </div>
+                <div class="pv-row" data-key="os">
+                    <span class="pv-ico" aria-hidden="true">💻</span>
+                    <span class="pv-label">Система</span>
+                    <span class="pv-value" id="pvOs">—</span>
+                </div>
+                <div class="pv-row" data-key="proxy">
+                    <span class="pv-ico" aria-hidden="true">🛡️</span>
+                    <span class="pv-label">Прокси / VPN</span>
+                    <span class="pv-value pv-flag" id="pvProxy" data-state="idle">проверяем…</span>
+                </div>
+                <div class="pv-row" data-key="webrtc">
+                    <span class="pv-ico" aria-hidden="true">📡</span>
+                    <span class="pv-label">WebRTC-утечка</span>
+                    <span class="pv-value pv-flag" id="pvWebrtc" data-state="idle">проверяем…</span>
+                </div>
+                <div class="pv-row" data-key="tz">
+                    <span class="pv-ico" aria-hidden="true">🕒</span>
+                    <span class="pv-label">Часовой пояс</span>
+                    <span class="pv-value pv-flag" id="pvTz" data-state="idle">—</span>
+                </div>
+                <div class="pv-row" data-key="lang">
+                    <span class="pv-ico" aria-hidden="true">🗣️</span>
+                    <span class="pv-label">Язык системы</span>
+                    <span class="pv-value pv-flag" id="pvLang" data-state="idle">—</span>
+                </div>
+            </div>
+
+            <div class="pv-tips" id="pvTips" hidden>
+                <h3>Как закрыть утечки</h3>
+                <ul id="pvTipsList"></ul>
+            </div>
+            <p class="pv-foot">Все проверки выполняются в браузере. Данные геолокации берутся из публичного IP‑сервиса и не сохраняются.</p>
         </section>
 
         <!-- Панель управления -->
@@ -207,6 +277,7 @@ foreach ($sites as $s) {
     <script>
         window.__SITES__ = <?= json_encode($sites, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     </script>
-    <script src="assets/js/app.js?v=6"></script>
+    <script src="assets/js/app.js?v=10"></script>
+    <script src="assets/js/privacy.js?v=1"></script>
 </body>
 </html>

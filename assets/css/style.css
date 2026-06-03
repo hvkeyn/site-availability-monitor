@@ -657,6 +657,143 @@ button.stat.active::after {
 }
 .grid-empty.hidden { display: none; }
 
+/* ---------- Privacy module ---------- */
+.privacy {
+    margin: 0 0 18px;
+    padding: 20px 22px;
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    backdrop-filter: blur(8px);
+}
+.pv-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+.pv-head-text { flex: 1; min-width: 180px; }
+.pv-head h2 { font-size: 1.15rem; line-height: 1.1; }
+.pv-sub { color: var(--muted); font-size: 0.82rem; margin-top: 3px; }
+
+.pv-verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 13px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border: 1px solid var(--card-border);
+    background: rgba(120,140,190,0.08);
+    color: var(--muted);
+}
+.pv-verdict-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--idle);
+    box-shadow: 0 0 10px var(--idle);
+}
+.pv-verdict[data-state="good"] { color: var(--up); border-color: rgba(46,230,166,0.32); background: rgba(46,230,166,0.10); }
+.pv-verdict[data-state="good"] .pv-verdict-dot { background: var(--up); box-shadow: 0 0 10px var(--up); }
+.pv-verdict[data-state="warn"] { color: var(--slow); border-color: rgba(255,194,75,0.32); background: rgba(255,194,75,0.10); }
+.pv-verdict[data-state="warn"] .pv-verdict-dot { background: var(--slow); box-shadow: 0 0 10px var(--slow); }
+.pv-verdict[data-state="bad"]  { color: var(--down); border-color: rgba(255,93,108,0.32); background: rgba(255,93,108,0.10); }
+.pv-verdict[data-state="bad"] .pv-verdict-dot { background: var(--down); box-shadow: 0 0 10px var(--down); }
+
+.pv-refresh { font-size: 1.05rem; }
+
+.pv-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--card-border);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.pv-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--bg-soft);
+    min-width: 0;
+}
+.pv-ico { font-size: 1rem; width: 1.4em; text-align: center; opacity: 0.9; flex-shrink: 0; }
+.pv-label {
+    color: var(--muted);
+    font-size: 0.82rem;
+    flex-shrink: 0;
+    width: 124px;
+}
+.pv-value {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+.pv-value.is-loading { color: var(--muted); font-weight: 400; }
+.pv-flag[data-state="good"] { color: var(--up); }
+.pv-flag[data-state="warn"] { color: var(--slow); }
+.pv-flag[data-state="bad"]  { color: var(--down); }
+.pv-flag[data-state="idle"] { color: var(--muted); font-weight: 400; }
+
+.pv-copy {
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--card-border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 2px 7px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: color 0.18s, border-color 0.18s;
+}
+.pv-copy:hover { color: var(--text); border-color: var(--accent); }
+.pv-copy.copied { color: var(--up); border-color: rgba(46,230,166,0.4); }
+
+.pv-tips {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px solid rgba(255,194,75,0.28);
+    background: rgba(255,194,75,0.07);
+    border-radius: 12px;
+}
+.pv-tips[hidden] { display: none; }
+.pv-tips h3 {
+    font-size: 0.92rem;
+    color: var(--slow);
+    margin-bottom: 8px;
+}
+.pv-tips ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.pv-tips li {
+    position: relative;
+    padding-left: 20px;
+    font-size: 0.85rem;
+    color: #d7dcea;
+    line-height: 1.45;
+}
+.pv-tips li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--slow);
+    font-weight: 700;
+}
+.pv-tips li b { color: #fff; font-weight: 600; }
+.pv-foot {
+    margin-top: 12px;
+    font-size: 0.76rem;
+    color: var(--idle);
+}
+
 /* ---------- Info block ---------- */
 .info-block {
     margin: 36px 0;
@@ -754,6 +891,13 @@ button.stat.active::after {
 
     .info-block { padding: 18px; margin: 28px 0; }
     .site-footer .container { flex-direction: column; }
+
+    .privacy { padding: 16px; }
+    .pv-grid { grid-template-columns: 1fr; }
+    .pv-head { gap: 10px; }
+    .pv-verdict { order: 3; width: 100%; justify-content: center; }
+    .pv-refresh { order: 2; }
+    .pv-label { width: 108px; }
 }
 
 /* Обычные смартфоны */
